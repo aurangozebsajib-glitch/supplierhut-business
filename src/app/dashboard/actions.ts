@@ -3,6 +3,7 @@
 import { currentUser } from '@clerk/nextjs/server';
 import sql from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { put } from '@vercel/blob';
 
 export async function createProject(formData: FormData) {
   const user = await currentUser();
@@ -14,6 +15,16 @@ export async function createProject(formData: FormData) {
 
   const title = formData.get('title') as string;
   const description = formData.get('description') as string;
+  const file = formData.get('file') as File | null;
+
+  let fileUrl: string | null = null;
+
+  if (file && file.size > 0) {
+    const blob = await put(file.name, file, {
+      access: 'private',
+    });
+    fileUrl = blob.url;
+  }
 
   // Create table if not exists
   await sql`
@@ -23,14 +34,20 @@ export async function createProject(formData: FormData) {
       description TEXT NOT NULL,
       status TEXT DEFAULT 'Pending Review',
       user_email TEXT NOT NULL,
+      file_url TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
+  // Add column if it doesn't exist on existing table
+  await sql`
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS file_url TEXT
+  `;
+
   // Insert project
   await sql`
-    INSERT INTO projects (title, description, user_email)
-    VALUES (${title}, ${description}, ${email})
+    INSERT INTO projects (title, description, user_email, file_url)
+    VALUES (${title}, ${description}, ${email}, ${fileUrl})
   `;
 
   revalidatePath('/dashboard');
