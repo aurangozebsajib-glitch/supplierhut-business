@@ -1,5 +1,5 @@
 import { currentUser } from '@clerk/nextjs/server';
-import sql from '@/lib/db';
+import sql, { ensureTables } from '@/lib/db';
 import { createProject } from './actions';
 import Link from 'next/link';
 
@@ -12,6 +12,8 @@ interface Project {
   status: string;
   user_email: string;
   file_url: string | null;
+  price: number | null;
+  payment_status: string;
   created_at: string;
 }
 
@@ -19,22 +21,8 @@ export default async function DashboardPage() {
   const user = await currentUser();
   const email = user?.emailAddresses[0]?.emailAddress;
 
-  // Create table and column if not exists
-  await sql`
-    CREATE TABLE IF NOT EXISTS projects (
-      id SERIAL PRIMARY KEY,
-      title TEXT NOT NULL,
-      description TEXT NOT NULL,
-      status TEXT DEFAULT 'Pending Review',
-      user_email TEXT NOT NULL,
-      file_url TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  await sql`
-    ALTER TABLE projects ADD COLUMN IF NOT EXISTS file_url TEXT
-  `;
+  // Ensure tables and invoice columns exist
+  await ensureTables();
 
   // Fetch projects for the logged-in user
   const projects = email ? (await sql`
@@ -125,6 +113,25 @@ export default async function DashboardPage() {
                     >
                       View Chat 💬
                     </Link>
+                  </div>
+                  <div className="mt-3 text-sm text-slate-900">
+                    <span className="font-semibold">
+                      Invoice:{' '}
+                      {project.price === null || project.price === undefined
+                        ? 'Pending Quote'
+                        : `$${project.price}`}
+                    </span>
+                    <span
+                      className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                        project.payment_status === 'paid'
+                          ? 'bg-green-100 text-green-800'
+                          : project.payment_status === 'unpaid'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {project.payment_status}
+                    </span>
                   </div>
                 </div>
                 <div className="flex flex-col items-start sm:items-end">

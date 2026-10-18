@@ -1,6 +1,6 @@
 import { currentUser } from '@clerk/nextjs/server';
-import sql from '@/lib/db';
-import { updateProjectStatus } from './actions';
+import sql, { ensureTables } from '@/lib/db';
+import { updateProjectInvoice, updateProjectStatus } from './actions';
 import Link from 'next/link';
 
 export const instant = false;
@@ -12,6 +12,8 @@ interface Project {
   status: string;
   user_email: string;
   file_url: string | null;
+  price: number | null;
+  payment_status: string;
   created_at: string;
 }
 
@@ -38,22 +40,8 @@ export default async function AdminPage() {
     );
   }
 
-  // Ensure projects table exists
-  await sql`
-    CREATE TABLE IF NOT EXISTS projects (
-      id SERIAL PRIMARY KEY,
-      title TEXT NOT NULL,
-      description TEXT NOT NULL,
-      status TEXT DEFAULT 'Pending Review',
-      user_email TEXT NOT NULL,
-      file_url TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  await sql`
-    ALTER TABLE projects ADD COLUMN IF NOT EXISTS file_url TEXT
-  `;
+  // Ensure tables and invoice columns exist
+  await ensureTables();
 
   // Fetch all projects
   const projects = (await sql`
@@ -88,6 +76,8 @@ export default async function AdminPage() {
                   <th className="py-4 px-6">Customer Email</th>
                   <th className="py-4 px-6">Title</th>
                   <th className="py-4 px-6">Status</th>
+                  <th className="py-4 px-6">Invoice</th>
+                  <th className="py-4 px-6">Update Invoice</th>
                   <th className="py-4 px-6">Actions</th>
                 </tr>
               </thead>
@@ -111,6 +101,51 @@ export default async function AdminPage() {
                       >
                         {project.status}
                       </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="font-semibold text-slate-900">
+                        {project.price === null || project.price === undefined ? 'Not Set' : `$${project.price}`}
+                      </div>
+                      <span
+                        className={`mt-1 inline-block px-2 py-0.5 rounded-full text-xs font-bold ${
+                          project.payment_status === 'paid'
+                            ? 'bg-green-100 text-green-800'
+                            : project.payment_status === 'unpaid'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {project.payment_status}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <form action={updateProjectInvoice} className="flex items-center gap-2">
+                        <input type="hidden" name="projectId" value={project.id} />
+                        <input
+                          type="number"
+                          name="price"
+                          step="0.01"
+                          min="0"
+                          placeholder="Price"
+                          defaultValue={project.price ?? ''}
+                          className="w-24 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        />
+                        <select
+                          name="paymentStatus"
+                          defaultValue={project.payment_status}
+                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        >
+                          <option value="unpaid">Unpaid</option>
+                          <option value="paid">Paid</option>
+                          <option value="refunded">Refunded</option>
+                        </select>
+                        <button
+                          type="submit"
+                          className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors"
+                        >
+                          Set
+                        </button>
+                      </form>
                     </td>
                     <td className="py-4 px-6 flex items-center gap-3">
                       <Link

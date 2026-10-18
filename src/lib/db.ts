@@ -12,13 +12,21 @@ export async function ensureTables() {
       status TEXT DEFAULT 'Pending Review',
       user_email TEXT NOT NULL,
       file_url TEXT,
+      price INTEGER,
+      payment_status TEXT DEFAULT 'unpaid',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `;
 
-  // Add column if it doesn't exist on existing table
+  // Add columns if they don't exist on existing table
   await sql`
     ALTER TABLE projects ADD COLUMN IF NOT EXISTS file_url TEXT
+  `;
+  await sql`
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS price INTEGER
+  `;
+  await sql`
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'unpaid'
   `;
 
   // Ensure messages table exists

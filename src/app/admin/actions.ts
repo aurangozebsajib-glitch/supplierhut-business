@@ -1,7 +1,7 @@
 'use server';
 
 import { currentUser } from '@clerk/nextjs/server';
-import sql from '@/lib/db';
+import sql, { ensureTables } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
 export async function updateProjectStatus(formData: FormData) {
@@ -19,9 +19,47 @@ export async function updateProjectStatus(formData: FormData) {
     throw new Error('Missing projectId or newStatus');
   }
 
+  await ensureTables();
+
   await sql`
     UPDATE projects
     SET status = ${newStatus}
+    WHERE id = ${Number(projectId)}
+  `;
+
+  revalidatePath('/admin');
+  revalidatePath('/dashboard');
+}
+
+export async function updateProjectInvoice(formData: FormData) {
+  const user = await currentUser();
+  const email = user?.emailAddresses[0]?.emailAddress;
+
+  if (!email || email !== process.env.ADMIN_EMAIL) {
+    throw new Error('Unauthorized');
+  }
+
+  const projectId = formData.get('projectId');
+  const priceRaw = formData.get('price');
+  const paymentStatus = formData.get('paymentStatus') as string;
+
+  if (!projectId || !paymentStatus) {
+    throw new Error('Missing projectId or paymentStatus');
+  }
+
+  let price: number | null = null;
+  if (priceRaw !== null && String(priceRaw).trim() !== '') {
+    const parsed = Number(priceRaw);
+    if (!isNaN(parsed)) {
+      price = parsed;
+    }
+  }
+
+  await ensureTables();
+
+  await sql`
+    UPDATE projects
+    SET price = ${price}, payment_status = ${paymentStatus}
     WHERE id = ${Number(projectId)}
   `;
 
