@@ -1,6 +1,7 @@
 import { currentUser } from '@clerk/nextjs/server';
 import sql from '@/lib/db';
 import { createProject } from './actions';
+import Link from 'next/link';
 
 export const instant = false;
 
@@ -97,7 +98,7 @@ export default async function DashboardPage() {
 
       {/* Project List */}
       <div>
-        <h2 className="text-xl font-bold mb-6">Your Projects</h2>
+        <h2 className="text-xl font-bold mb-6 text-slate-900">Your Projects</h2>
         {projects.length === 0 ? (
           <p className="text-slate-500 italic">No projects yet. Start by ordering one above!</p>
         ) : (
@@ -107,8 +108,8 @@ export default async function DashboardPage() {
                 <div>
                   <h3 className="text-lg font-bold text-slate-900">{project.title}</h3>
                   <p className="text-slate-600 text-sm mt-1">{project.description}</p>
-                  {project.file_url && (
-                    <div className="mt-2">
+                  <div className="flex items-center gap-3 mt-3">
+                    {project.file_url && (
                       <a
                         href={project.file_url}
                         target="_blank"
@@ -117,8 +118,14 @@ export default async function DashboardPage() {
                       >
                         View Attachment ↗
                       </a>
-                    </div>
-                  )}
+                    )}
+                    <Link
+                      href={`/dashboard/project/${project.id}`}
+                      className="inline-flex items-center text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 px-2.5 py-1 rounded-md transition-colors"
+                    >
+                      View Chat 💬
+                    </Link>
+                  </div>
                 </div>
                 <div className="flex flex-col items-start sm:items-end">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold ${

@@ -1,7 +1,7 @@
 'use server';
 
 import { currentUser } from '@clerk/nextjs/server';
-import sql from '@/lib/db';
+import sql, { ensureTables } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { put } from '@vercel/blob';
 
@@ -21,28 +21,13 @@ export async function createProject(formData: FormData) {
 
   if (file && file.size > 0) {
     const blob = await put(file.name, file, {
-      access: 'private',
+      access: 'public',
     });
     fileUrl = blob.url;
   }
 
-  // Create table if not exists
-  await sql`
-    CREATE TABLE IF NOT EXISTS projects (
-      id SERIAL PRIMARY KEY,
-      title TEXT NOT NULL,
-      description TEXT NOT NULL,
-      status TEXT DEFAULT 'Pending Review',
-      user_email TEXT NOT NULL,
-      file_url TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-
-  // Add column if it doesn't exist on existing table
-  await sql`
-    ALTER TABLE projects ADD COLUMN IF NOT EXISTS file_url TEXT
-  `;
+  // Ensure tables exist
+  await ensureTables();
 
   // Insert project
   await sql`
@@ -51,4 +36,33 @@ export async function createProject(formData: FormData) {
   `;
 
   revalidatePath('/dashboard');
+}
+
+export async function sendMessage(formData: FormData) {
+  const user = await currentUser();
+  const email = user?.emailAddresses[0]?.emailAddress;
+
+  if (!email) {
+    throw new Error('User not authenticated');
+  }
+
+  const projectId = formData.get('projectId');
+  const message = formData.get('message') as string;
+
+  if (!projectId || !message || !message.trim()) {
+    throw new Error('Missing projectId or message');
+  }
+
+  // Ensure tables exist
+  await ensureTables();
+
+  await sql`
+    INSERT INTO messages (project_id, sender_email, message)
+    VALUES (${Number(projectId)}, ${email}, ${message.trim()})
+  `;
+
+  revalidatePath(`/dashboard/project/${projectId}`);
+  revalidatePath(`/admin/project/${projectId}`);
+  revalidatePath('/dashboard');
+  revalidatePath('/admin');
 }

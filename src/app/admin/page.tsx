@@ -11,6 +11,7 @@ interface Project {
   description: string;
   status: string;
   user_email: string;
+  file_url: string | null;
   created_at: string;
 }
 
@@ -45,8 +46,13 @@ export default async function AdminPage() {
       description TEXT NOT NULL,
       status TEXT DEFAULT 'Pending Review',
       user_email TEXT NOT NULL,
+      file_url TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
+  `;
+
+  await sql`
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS file_url TEXT
   `;
 
   // Fetch all projects
@@ -81,27 +87,16 @@ export default async function AdminPage() {
                   <th className="py-4 px-6">ID</th>
                   <th className="py-4 px-6">Customer Email</th>
                   <th className="py-4 px-6">Title</th>
-                  <th className="py-4 px-6">Description</th>
                   <th className="py-4 px-6">Status</th>
-                  <th className="py-4 px-6">Created At</th>
                   <th className="py-4 px-6">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {projects.map((project) => (
                   <tr key={project.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-4 px-6 font-mono font-medium text-slate-500">
-                      #{project.id}
-                    </td>
-                    <td className="py-4 px-6 font-medium text-slate-900">
-                      {project.user_email}
-                    </td>
-                    <td className="py-4 px-6 font-semibold text-slate-900">
-                      {project.title}
-                    </td>
-                    <td className="py-4 px-6 text-slate-600 max-w-xs break-words">
-                      {project.description}
-                    </td>
+                    <td className="py-4 px-6 font-mono font-medium text-slate-500">#{project.id}</td>
+                    <td className="py-4 px-6 font-medium text-slate-900">{project.user_email}</td>
+                    <td className="py-4 px-6 font-semibold text-slate-900">{project.title}</td>
                     <td className="py-4 px-6">
                       <span
                         className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
@@ -117,10 +112,13 @@ export default async function AdminPage() {
                         {project.status}
                       </span>
                     </td>
-                    <td className="py-4 px-6 text-slate-500 text-xs whitespace-nowrap">
-                      {new Date(project.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="py-4 px-6">
+                    <td className="py-4 px-6 flex items-center gap-3">
+                      <Link
+                        href={`/admin/project/${project.id}`}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        View Chat 💬
+                      </Link>
                       <form action={updateProjectStatus} className="flex items-center gap-2">
                         <input type="hidden" name="projectId" value={project.id} />
                         <select
